@@ -1,8 +1,14 @@
+/**
+
+An example HTTP server that demonstrates how to use the Go Spotify Library.
+
+**/
+
 package main
 
 import (
 	"fmt"
-	s "jbuberel/spotify_client"
+	s "github.com/jbuberel/spotify_client"
 	"log"
 	"net/http"
 	"net/url"

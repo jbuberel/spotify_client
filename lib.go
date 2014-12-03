@@ -1,3 +1,14 @@
+/**
+	A client library for the Spotify Web Service API, written in the Go
+	programming language (golang). Use of this library requires
+	a Spotify Developer Account. Start here to set one up:
+	
+	https://developer.spotify.com/my-applications/
+	
+	See the README.md for more information.
+	
+	
+**/
 package spotify_client
 
 import (
