@@ -50,6 +50,20 @@ type PlaylistResponse struct {
 	Items    []Playlist `json:"items"`
 }
 
+
+type CreatePlaylistRequest struct {
+	Name     string     `json:"name"`
+	Public	 bool 		`json:"public"`
+}
+
+type AddTrackToPlaylistRequest struct {
+	Uris	[]string	`json:"uris"`
+}
+
+type AddTrackToPlaylistResponse struct {
+	SnapshotId	string	`json:"snapshot_id"`
+}
+
 type Playlist struct {
 	Href string `json:"href"`
 	Id   string `json:"id"`
@@ -225,6 +239,122 @@ func GetUserPlaylists(accessToken AccessToken, username Username) ([]Playlist, e
 	}
 
 	return playlistItems, nil
+}
+
+
+// Given an AccessToken, UserName (retrieved using the GetAccessToken and GetUserInfo functions),
+// and Playlist ID, this function will return a simplified Playlist object
+func GetPlaylistInfo(accessToken AccessToken, username Username, playlistId string) (Playlist, error) {
+
+	s := napping.Session{}
+	header := http.Header{}
+	header.Add("Authorization", "Bearer "+string(accessToken))
+	s.Header = &header
+
+	res := ResponseUserAgent{}
+
+	res = ResponseUserAgent{}
+	reqUrl := fmt.Sprintf("https://api.spotify.com/v1/users/%v/playlists/%v", username, playlistId)
+
+	resp, err := s.Get(reqUrl, nil, &res, nil)
+	if err != nil {
+		log.Println(err)
+		return Playlist{}, err
+	}
+	log.Printf("Response URL: %v\n", resp.Url)
+	var playlist = new(Playlist)
+
+	err = resp.Unmarshal(&playlist)
+	if err != nil {
+		log.Println(err)
+	}
+
+	return *playlist, nil
+}
+
+// Given an AccessToken, UserName (retrieved using the GetAccessToken and GetUserInfo functions),
+// and new playlist name, this method will create a new playlist.
+func CreatePlaylist(accessToken AccessToken, username Username, playlistName string, playlistPublic bool) (Playlist, error) {
+
+	s := napping.Session{}
+	header := http.Header{}
+	header.Add("Authorization", "Bearer "+string(accessToken))
+	s.Header = &header
+
+	res := ResponseUserAgent{}
+
+	res = ResponseUserAgent{}
+	reqUrl := fmt.Sprintf("https://api.spotify.com/v1/users/%v/playlists", username)
+
+	s.Log = false
+	payload := &CreatePlaylistRequest{ 
+			Name: playlistName, 
+			Public: playlistPublic,
+			}
+	resp, err := s.Post(reqUrl, payload, &res, nil)
+	s.Log = false
+	if err != nil {
+		log.Println(err)
+		return Playlist{}, err
+	}
+	log.Printf("Response URL: %v\n", resp.Url)
+	log.Printf("Response Text: %v\n", resp.RawText())
+	var playlist = new(Playlist)
+
+	err = resp.Unmarshal(&playlist)
+	if err != nil {
+		log.Println(err)
+	}
+
+	return *playlist, nil
+}
+
+// Method will add tracks to an existing playlist
+func AddTracksToPlaylist(accessToken AccessToken, username Username, playlist Playlist, tracks []Track) (AddTrackToPlaylistResponse, error) {
+		
+	s := napping.Session{}
+	header := http.Header{}
+	header.Add("Authorization", "Bearer "+string(accessToken))
+	s.Header = &header
+
+	res := ResponseUserAgent{}
+	res = ResponseUserAgent{}
+	reqUrl := fmt.Sprintf("https://api.spotify.com/v1/users/%v/playlists/%v/tracks", string(username), playlist.Id)
+	
+	// Spotify's Add Tracks API only allows you to add 100 tracks at a time, 
+	// so we need to paginate our POST's if the list of tracks > 100:
+	var addTrackResponse = new (AddTrackToPlaylistResponse)
+	for i := 0; i < len(tracks); i += 100 {
+		addTracksRequest := new(AddTrackToPlaylistRequest)
+		x := len(tracks[i:])
+		if x > 100 {
+			x = i +  100
+		} else {
+			x = i + len(tracks[i:])
+		}
+		for _, t := range tracks[i:x] {
+			log.Printf("Adding track to playlist: %v-%v\n", t.Id, t.Name)
+			addTracksRequest.Uris = append(addTracksRequest.Uris,  "spotify:track:" + t.Id)
+		}
+		
+		resp, err := s.Post(reqUrl, addTracksRequest, &res, nil)
+		if err != nil {
+			log.Println(err)
+			return AddTrackToPlaylistResponse{}, err
+		}
+		
+		addTrackResponse = new (AddTrackToPlaylistResponse)
+		err = resp.Unmarshal(&addTrackResponse)
+		if err != nil {
+			log.Println(err)
+			return AddTrackToPlaylistResponse{}, err
+		}
+
+	}
+	
+	
+	return *addTrackResponse, nil
+	
 }
 
 // For a given user and playlist, this method will return track listings for
